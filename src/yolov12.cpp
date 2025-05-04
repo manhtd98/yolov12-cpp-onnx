@@ -41,7 +41,7 @@ YOLO12Detector::YOLO12Detector(const std::string &modelPath, const std::string &
         {
             logger.info("GPU is not supported by your ONNXRuntime build. Fallback to CPU.");
         }
-        logger.info("Inference device: CPU");
+        logger.info("Inference device: CPUExecutionProvider");
     }
 
     // Load the ONNX model into the session
