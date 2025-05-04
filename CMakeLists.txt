@@ -14,7 +14,7 @@ include_directories("${ONNXRUNTIME_DIR}/include")
 link_directories("${ONNXRUNTIME_DIR}/lib")
 
 # Add executable for image inference
-add_executable(${PROJECT_NAME} src/main.cpp src/yolov12.cpp src/utils.cpp)
+add_executable(${PROJECT_NAME} src/main.cpp src/yolov12.cpp src/utils.cpp src/logger.cpp)
 
 set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)

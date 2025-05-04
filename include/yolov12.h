@@ -17,6 +17,7 @@
 #include <thread>
 
 #include "utils.h"
+#include "logger.h"
 #include "tools/ScopedTimer.hpp"
 #include "tools/Debug.hpp"
 class YOLO12Detector

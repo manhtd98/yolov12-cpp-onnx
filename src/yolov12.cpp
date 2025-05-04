@@ -15,6 +15,7 @@ void YOLO12Detector::drawBoundingBoxMask(cv::Mat &image, const std::vector<Detec
 // Implementation of YOLO12Detector constructor
 YOLO12Detector::YOLO12Detector(const std::string &modelPath, const std::string &labelsPath, bool useGPU)
 {
+    Logger &logger = Logger::getInstance();
     // Initialize ONNX Runtime environment with warning level
     env = Ort::Env(ORT_LOGGING_LEVEL_WARNING, "ONNX_YOLOV12");
     sessionOptions = Ort::SessionOptions();
@@ -31,16 +32,16 @@ YOLO12Detector::YOLO12Detector(const std::string &modelPath, const std::string &
     // Configure session options based on whether GPU is to be used and available
     if (useGPU && cudaAvailable != availableProviders.end())
     {
-        std::cout << "Inference device: GPU" << std::endl;
+        logger.info("Inference device: GPU");
         sessionOptions.AppendExecutionProvider_CUDA(cudaOption); // Append CUDA execution provider
     }
     else
     {
         if (useGPU)
         {
-            std::cout << "GPU is not supported by your ONNXRuntime build. Fallback to CPU." << std::endl;
+            logger.info("GPU is not supported by your ONNXRuntime build. Fallback to CPU.");
         }
-        std::cout << "Inference device: CPU" << std::endl;
+        logger.info("Inference device: CPU");
     }
 
     // Load the ONNX model into the session
@@ -86,7 +87,7 @@ YOLO12Detector::YOLO12Detector(const std::string &modelPath, const std::string &
     classNames = utils::getClassNames(labelsPath);
     classColors = utils::generateColors(classNames, 42);
 
-    std::cout << "Model loaded successfully with " << numInputNodes << " input nodes and " << numOutputNodes << " output nodes." << std::endl;
+    logger.info("Model loaded successfully with " + std::to_string(numInputNodes) + " input nodes and " + std::to_string(numOutputNodes) + " output nodes.");
 }
 
 // Preprocess function implementation
