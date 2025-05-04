@@ -386,8 +386,6 @@ namespace utils
             if (detection.conf <= CONFIDENCE_THRESHOLD)
                 continue;
 
-            std::cout << detection.conf << " " << detection.box.x << " " << detection.box.y << " " << detection.classId << std::endl;
-
             // Ensure the object ID is within valid range
             if (detection.classId < 0 || static_cast<size_t>(detection.classId) >= classNames.size())
                 continue;

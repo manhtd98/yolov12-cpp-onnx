@@ -200,6 +200,7 @@ int main()
     // Paths to the model and labels
     const std::string labelsPath = "../models/coco.names";
     const std::string modelPath = "../models/yolov12n.onnx";
+    std::string outputPath = "../output/output.png";
     const float confThreshold = 0.4f;
     const float ioUThreshold = 0.45f;
     const bool isGPU = false; // Set to false for CPU processing
@@ -241,6 +242,14 @@ int main()
                 std::chrono::high_resolution_clock::now() - start);
             logger.info("Detection completed in: " + std::to_string(duration.count()) + " ms");
 
+            detector.drawBoundingBox(image, detections); 
+            
+            if (cv::imwrite(outputPath, image)) {
+                std::cout << "Processed image saved successfully at: " << outputPath << std::endl;
+            } else {
+                std::cerr << "Error: Could not save the processed image to: " << outputPath << std::endl;
+            }
+            // cv::waitKey(0); // Wait for a key press to close the window
             // Prepare JSON response
             json response = json::array();
             for (const auto& detection : detections) {
