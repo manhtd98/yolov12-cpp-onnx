@@ -79,7 +79,7 @@ namespace utils
                   float nmsThreshold,
                   std::vector<int> &indices);
 
-    std::vector<cv::Scalar> generateColors(const std::vector<std::string> &classNames, int seed);
+    std::vector<cv::Scalar> generateColors(const std::vector<std::string> &classNames, int seed=42);
 
     void drawBoundingBox(cv::Mat &image, const std::vector<Detection> &detections,
                          const std::vector<std::string> &classNames, const std::vector<cv::Scalar> &colors);

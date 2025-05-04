@@ -1,38 +1,3 @@
-/**
- * @file image_inference.cpp
- * @brief Object detection in a static image using YOLOv12 model.
- *
- * This file implements an object detection application that utilizes YOLO
- * (You Only Look Once) model, specifically version 12.
- *
- * The application loads a specified image, processes it to detect objects,
- * and displays the results with bounding boxes around detected objects.
- *
- * The application supports the following functionality:
- * - Loading a specified image from disk.
- * - Initializing the YOLO12 detector model and labels.
- * - Detecting objects within the image.
- * - Drawing bounding boxes around detected objects and displaying the result.
- * - Saving the processed image to a specified directory.
- *
- * Configuration parameters can be adjusted to suit specific requirements:
- * - `isGPU`: Set to true to enable GPU processing for improved performance;
- *   set to false for CPU processing.
- * - `labelsPath`: Path to the class labels file (e.g., COCO dataset).
- * - `imagePath`: Path to the image file to be processed (e.g., dogs.jpg).
- * - `modelPath`: Path to the YOLO model file (e.g., ONNX format).
- * - `savePath`: Directory path to save the output image.
- *
- * Usage Instructions:
- * 1. Compile the application with the necessary OpenCV and YOLO dependencies.
- * 2. Ensure that the specified image and model files are present in the
- *    provided paths.
- * 3. Run the executable to initiate the object detection process.
- *
- * Author: Mohamed Samir, https://www.linkedin.com/in/mohamed-samir-7a730b237/
- * Date: 19.02.2025
- */
-
 // Include necessary headers
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/imgcodecs.hpp>
@@ -42,15 +7,103 @@
 #include "safe_queue.h"
 #include "yolov12.h"
 #include "logger.h"
+#include <json.hpp>
+#include <httplib.h>
+
+// Using JSON library namespace
+using json = nlohmann::json;
+
+// Download image from URL using cpp-httplib
+cv::Mat downloadImage(const std::string &url, Logger &logger)
+{
+    std::string host, path;
+    size_t pos = url.find("://");
+    if (pos == std::string::npos)
+    {
+        logger.error("Invalid URL format: " + url);
+        return cv::Mat();
+    }
+
+    std::string scheme = url.substr(0, pos);
+    pos += 3;
+    size_t slash_pos = url.find('/', pos);
+    if (slash_pos == std::string::npos)
+    {
+        host = url.substr(pos);
+        path = "/";
+    }
+    else
+    {
+        host = url.substr(pos, slash_pos - pos);
+        path = url.substr(slash_pos);
+    }
+    cv::Mat image;
+    if (scheme == "https")
+    {
+#ifdef CPPHTTPLIB_OPENSSL_SUPPORT
+        httplib::SSLClient cli(host.c_str());
+        cli.set_follow_location(true); // Follow redirects
+        auto res = cli.Get(path.c_str());
+        if (res && res->status == 200)
+        {
+            std::vector<uchar> buffer(res->body.begin(), res->body.end());
+            image = cv::imdecode(buffer, cv::IMREAD_COLOR);
+            if (image.empty())
+            {
+                logger.error("Failed to decode image from URL: " + url);
+            }
+        }
+        else
+        {
+            std::string error_msg = res ? "HTTP status: " + std::to_string(res->status) : "Connection error";
+            logger.error("Failed to download image from " + url + ": " + error_msg);
+        }
+#else
+        logger.error("HTTPS not supported: " + url);
+        return cv::Mat();
+#endif
+    }
+    else if (scheme == "http")
+    {
+        httplib::Client cli(host.c_str());
+        cli.set_follow_location(true); // Follow redirects
+        auto res = cli.Get(path.c_str());
+        if (res && res->status == 200)
+        {
+            std::vector<uchar> buffer(res->body.begin(), res->body.end());
+            image = cv::imdecode(buffer, cv::IMREAD_COLOR);
+            if (image.empty())
+            {
+                logger.error("Failed to decode image from URL: " + url);
+            }
+        }
+        else
+        {
+            std::string error_msg = res ? "HTTP status: " + std::to_string(res->status) : "Connection error";
+            logger.error("Failed to download image from " + url + ": " + error_msg);
+        }
+    }
+    else
+    {
+        logger.error("Unsupported URL scheme: " + scheme);
+    }
+
+    return image;
+}
 
 int video_infer()
 {
+    Logger &logger = Logger::getInstance();
+    logger.setLogFile("application.log");
+    logger.setLogLevel(Logger::LogLevel::DEBUG);
+    logger.info("Application started");
     // Paths to the model, labels, input video, and output video
     const std::string labelsPath = "../models/coco.names";
     const std::string videoPath = "../data/0001.mp4";         // Input video path
     const std::string outputPath = "../data/0001_output.mp4"; // Output video path
     const std::string modelPath = "/Users/macbook/work/yolov12/yolov12n.onnx";
-
+    const float confThreshold = 0.4f;
+    const float ioUThreshold = 0.45f;
     // Initialize the YOLO detector
     bool isGPU = false; // Set to false for CPU processing
     YOLO12Detector detector(modelPath, labelsPath, isGPU);
@@ -103,7 +156,7 @@ int video_infer()
         int frameIndex = 0;
         while (frameQueue.dequeue(frame)){
             // Detect objects in the frame
-            std::vector<Detection> results = detector.detect(frame);
+            std::vector<Detection> results = detector.detect(frame, confThreshold, ioUThreshold);
 
             // Draw bounding boxes on the frame
             detector.drawBoundingBoxMask(frame, results); // Uncomment for mask drawing
@@ -138,60 +191,87 @@ int video_infer()
 
 int main()
 {
-    // Paths to the model, labels, test image, and save directory
     // Get the logger instance
     Logger &logger = Logger::getInstance();
-
-    // Configure the logger
     logger.setLogFile("application.log");
     logger.setLogLevel(Logger::LogLevel::DEBUG);
     logger.info("Application started");
 
+    // Paths to the model and labels
     const std::string labelsPath = "../models/coco.names";
-    const std::string imagePath = "../data/tenis.jpg";         // Image path
-    const std::string outputPath = "../data/tenis_output.jpg"; // Save directory
+    const std::string modelPath = "../models/yolov12n.onnx";
     const float confThreshold = 0.4f;
+    const float ioUThreshold = 0.45f;
+    const bool isGPU = false; // Set to false for CPU processing
 
-    // Model path for YOLOv12
-    const std::string modelPath = "../models/yolov12n.onnx"; // YOLOv12
-
-    // Initialize the YOLO detector with the chosen model and labels
-    bool isGPU = false; // Set to false for CPU processing
+    // Initialize the YOLO detector
     YOLO12Detector detector(modelPath, labelsPath, isGPU);
 
-    // Load an image
-    cv::Mat image = cv::imread(imagePath);
-    if (image.empty())
-    {
-        logger.error("Error: Could not open or find the image!\n");
-        return -1;
-    }
+    // Set up HTTP server
+    httplib::Server svr;
 
-    // Detect objects in the image and measure execution time
-    auto start = std::chrono::high_resolution_clock::now();
-    std::vector<Detection> detections = detector.detect(image, confThreshold);
-    auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(
-        std::chrono::high_resolution_clock::now() - start);
+    // POST /detect endpoint
+    svr.Post("/detect", [&](const httplib::Request &req, httplib::Response &res)
+             {
+        try {
+            // Parse JSON request
+            json requestBody = json::parse(req.body);
+            if (!requestBody.contains("image_url") || !requestBody["image_url"].is_string()) {
+                res.status = 400;
+                res.set_content(R"({"error": "Missing or invalid image_url"})", "application/json");
+                logger.error("Invalid request: Missing or invalid image_url");
+                return;
+            }
 
-    logger.info("Detection completed in: " + std::to_string(duration.count()) + " ms");
+            std::string imageUrl = requestBody["image_url"].get<std::string>();
+            logger.info("Received request for image: " + imageUrl);
 
-    // Draw bounding boxes on the image
-    detector.drawBoundingBox(image, detections); // Simple bounding box drawing
-    // detector.drawBoundingBoxMask(image, results); // Uncomment for mask drawing
+            // Download image
+            cv::Mat image = downloadImage(imageUrl, logger);
+            if (image.empty()) {
+                res.status = 400;
+                res.set_content(R"({"error": "Failed to download or decode image"})", "application/json");
+                return;
+            }
 
-    // Save the processed image to the specified directory
-    if (cv::imwrite(outputPath, image))
-    {
-        logger.info("Processed image saved successfully at: " + outputPath );
-    }
-    else
-    {
-        logger.error("Error: Could not save the processed image to: " + outputPath);
-    }
+            // Run detection
+            auto start = std::chrono::high_resolution_clock::now();
+            std::vector<Detection> detections = detector.detect(image, confThreshold, ioUThreshold);
+            auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(
+                std::chrono::high_resolution_clock::now() - start);
+            logger.info("Detection completed in: " + std::to_string(duration.count()) + " ms");
 
-    // Display the image
-    cv::imshow("Detections", image);
-    cv::waitKey(0); // Wait for a key press to close the window
+            // Prepare JSON response
+            json response = json::array();
+            for (const auto& detection : detections) {
+                json det;
+                det["class_id"] = detection.classId;
+                det["label"] = detection.classId;
+                det["confidence"] = detection.conf;
+                det["bbox"] = {
+                    {"x", detection.box.x},
+                    {"y", detection.box.y},
+                    {"width", detection.box.width},
+                    {"height", detection.box.height}
+                };
+                response.push_back(det);
+            }
+
+            res.set_content(response.dump(), "application/json");
+            logger.info("Sent response with " + std::to_string(detections.size()) + " detections");
+        } catch (const json::exception& e) {
+            res.status = 400;
+            res.set_content(R"({"error": "Invalid JSON format"})", "application/json");
+            logger.error("JSON parsing error: " + std::string(e.what()));
+        } catch (const std::exception& e) {
+            res.status = 500;
+            res.set_content(R"({"error": "Internal server error"})", "application/json");
+            logger.error("Server error: " + std::string(e.what()));
+        } });
+
+    // Start the server
+    logger.info("Starting HTTP server on localhost:8080");
+    svr.listen("localhost", 8080);
     logger.info("Application shutting down");
     return 0;
 }

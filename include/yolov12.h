@@ -23,7 +23,7 @@
 class YOLO12Detector
 {
 public:
-    YOLO12Detector(const std::string &modelPath, const std::string &labelsPath, bool useGPU = false);
+    YOLO12Detector(const std::string &modelPath, const std::string &labelsPath,  bool useGPU = false);
     std::vector<Detection> detect(const cv::Mat &image, float confThreshold = 0.4f, float iouThreshold = 0.45f);
 
     void drawBoundingBox(cv::Mat &image, const std::vector<Detection> &detections) const;

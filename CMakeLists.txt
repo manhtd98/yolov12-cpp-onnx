@@ -8,7 +8,7 @@ message(STATUS "ONNXRUNTIME_DIR: ${ONNXRUNTIME_DIR}")
 
 find_package(OpenCV REQUIRED)
 find_package(ONNX REQUIRED)
-
+find_package(OpenSSL REQUIRED)
 include_directories(${OpenCV_INCLUDE_DIRS})
 include_directories("${ONNXRUNTIME_DIR}/include")
 link_directories("${ONNXRUNTIME_DIR}/lib")
@@ -29,7 +29,9 @@ target_compile_features(${PROJECT_NAME} PRIVATE cxx_std_14)
 target_link_libraries(${PROJECT_NAME} ${OpenCV_LIBS})
 
 target_compile_definitions(${PROJECT_NAME} PRIVATE DEBUG_MODE)
+target_compile_definitions(${PROJECT_NAME} PRIVATE CPPHTTPLIB_OPENSSL_SUPPORT)
+
 
 message(STATUS "We are building on macOS!")
 # Specific macOS build commands or flags
-target_link_libraries(${PROJECT_NAME} onnxruntime)
+target_link_libraries(${PROJECT_NAME} onnxruntime OpenSSL::SSL OpenSSL::Crypto)
